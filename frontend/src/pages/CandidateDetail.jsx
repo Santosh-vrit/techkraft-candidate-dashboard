@@ -18,7 +18,7 @@ export default function CandidateDetail() {
   const [summaryError, setSummaryError] = useState("");
   const pollRef = useRef(null);
 
-  const load = useCallback(async () => {
+  const refreshCandidate = useCallback(async () => {
     setError("");
     try {
       const data = await api.getCandidate(id);
@@ -33,28 +33,32 @@ export default function CandidateDetail() {
   }, [id]);
 
   useEffect(() => {
-    load();
+    refreshCandidate();
     return () => clearTimeout(pollRef.current);
-  }, [load]);
+  }, [refreshCandidate]);
 
   useEffect(() => {
     if (candidate?.ai_summary_status === "pending") {
       pollRef.current = setTimeout(async () => {
         try {
-          await load();
+          await refreshCandidate();
         } catch {
           setSummaryError("Lost connection while waiting for the AI summary.");
         }
       }, 1200);
     }
     return () => clearTimeout(pollRef.current);
-  }, [candidate, load]);
+  }, [candidate, refreshCandidate]);
 
   async function handleTriggerSummary() {
     setSummaryError("");
     try {
-      const res = await api.triggerSummary(id);
-      setCandidate((c) => ({ ...c, ai_summary_status: res.ai_summary_status, ai_summary: null }));
+      const response = await api.triggerSummary(id);
+      setCandidate((currentCandidate) => ({
+        ...currentCandidate,
+        ai_summary_status: response.ai_summary_status,
+        ai_summary: null,
+      }));
     } catch (err) {
       setSummaryError(err.message || "Failed to trigger AI summary");
     }
@@ -69,6 +73,8 @@ export default function CandidateDetail() {
       setError(err.message || "Failed to archive candidate");
     }
   }
+
+  const canArchiveCandidate = isAdmin && candidate?.status !== "archived";
 
   if (loading) {
     return (
@@ -116,13 +122,13 @@ export default function CandidateDetail() {
             <span className={`badge ${candidate.status}`}>{candidate.status}</span>
           </div>
           <div style={{ marginTop: 10 }}>
-            {candidate.skills.map((s) => (
-              <span className="skill-tag" key={s}>
-                {s}
+            {candidate.skills.map((skillName) => (
+              <span className="skill-tag" key={skillName}>
+                {skillName}
               </span>
             ))}
           </div>
-          {isAdmin && candidate.status !== "archived" && (
+          {canArchiveCandidate && (
             <button className="danger" style={{ marginTop: 14 }} onClick={handleDelete}>
               Archive candidate
             </button>
@@ -135,9 +141,9 @@ export default function CandidateDetail() {
           onTrigger={handleTriggerSummary}
         />
 
-        <ScoresPanel candidate={candidate} onScored={load} />
+        <ScoresPanel candidate={candidate} onScored={refreshCandidate} />
 
-        {isAdmin && <InternalNotesPanel candidate={candidate} onSaved={load} />}
+        {isAdmin && <InternalNotesPanel candidate={candidate} onSaved={refreshCandidate} />}
       </div>
     </div>
   );
@@ -213,13 +219,13 @@ function ScoresPanel({ candidate, onScored }) {
             </tr>
           </thead>
           <tbody>
-            {candidate.scores.map((s) => (
-              <tr key={s.id}>
-                <td>{s.category}</td>
-                <td>{s.score} / 5</td>
-                {isAdmin && <td className="muted">{s.reviewer_email}</td>}
-                <td>{s.note}</td>
-                <td className="muted">{new Date(s.created_at).toLocaleDateString()}</td>
+            {candidate.scores.map((scoreEntry) => (
+              <tr key={scoreEntry.id}>
+                <td>{scoreEntry.category}</td>
+                <td>{scoreEntry.score} / 5</td>
+                {isAdmin && <td className="muted">{scoreEntry.reviewer_email}</td>}
+                <td>{scoreEntry.note}</td>
+                <td className="muted">{new Date(scoreEntry.created_at).toLocaleDateString()}</td>
               </tr>
             ))}
           </tbody>
@@ -231,16 +237,16 @@ function ScoresPanel({ candidate, onScored }) {
       <form onSubmit={handleSubmit}>
         <div className="form-row">
           <select value={category} onChange={(e) => setCategory(e.target.value)}>
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
+            {CATEGORIES.map((categoryName) => (
+              <option key={categoryName} value={categoryName}>
+                {categoryName}
               </option>
             ))}
           </select>
           <select value={score} onChange={(e) => setScore(e.target.value)}>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <option key={n} value={n}>
-                {n}
+            {[1, 2, 3, 4, 5].map((value) => (
+              <option key={value} value={value}>
+                {value}
               </option>
             ))}
           </select>

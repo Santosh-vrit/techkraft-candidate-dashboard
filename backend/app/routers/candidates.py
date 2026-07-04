@@ -23,14 +23,15 @@ from app.services.events import subscribe, unsubscribe
 router = APIRouter(prefix="/candidates", tags=["candidates"])
 
 
-def _serialize_detail(
+def _serialize_candidate(
     candidate: Candidate, current_user: User, scores: list | None = None
 ) -> CandidateDetail:
-    all_scores = candidate.scores if scores is None else scores
-    is_admin = current_user.role == Role.admin
-    visible_scores = all_scores if is_admin else [
-        s for s in all_scores if s.reviewer_id == current_user.id
+    available_scores = candidate.scores if scores is None else scores
+    user_is_admin = current_user.role == Role.admin
+    visible_scores = available_scores if user_is_admin else [
+        score for score in available_scores if score.reviewer_id == current_user.id
     ]
+
     return CandidateDetail(
         id=candidate.id,
         name=candidate.name,
@@ -39,21 +40,21 @@ def _serialize_detail(
         status=candidate.status,
         skills=candidate.skills,
         created_at=candidate.created_at,
-        internal_notes=candidate.internal_notes if is_admin else None,
+        internal_notes=candidate.internal_notes if user_is_admin else None,
         ai_summary=candidate.ai_summary,
         ai_summary_status=candidate.ai_summary_status,
         scores=[
             ScoreOut(
-                id=s.id,
-                candidate_id=s.candidate_id,
-                category=s.category,
-                score=s.score,
-                reviewer_id=s.reviewer_id,
-                reviewer_email=s.reviewer.email if s.reviewer else None,
-                note=s.note,
-                created_at=s.created_at,
+                id=score.id,
+                candidate_id=score.candidate_id,
+                category=score.category,
+                score=score.score,
+                reviewer_id=score.reviewer_id,
+                reviewer_email=score.reviewer.email if score.reviewer else None,
+                note=score.note,
+                created_at=score.created_at,
             )
-            for s in visible_scores
+            for score in visible_scores
         ],
     )
 
@@ -97,7 +98,7 @@ async def create_candidate(
     db.add(candidate)
     await db.commit()
     await db.refresh(candidate)
-    return _serialize_detail(candidate, current_user, scores=[])
+    return _serialize_candidate(candidate, current_user, scores=[])
 
 
 @router.get("/{candidate_id}", response_model=CandidateDetail)
@@ -109,7 +110,7 @@ async def get_candidate(
     candidate = await candidate_service.get_candidate_with_scores(db, candidate_id)
     if candidate is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidate not found")
-    return _serialize_detail(candidate, current_user)
+    return _serialize_candidate(candidate, current_user)
 
 
 @router.patch("/{candidate_id}/notes", response_model=CandidateDetail)
@@ -125,7 +126,7 @@ async def update_internal_notes(
     candidate.internal_notes = payload.internal_notes
     await db.commit()
     candidate = await candidate_service.get_candidate_with_scores(db, candidate_id)
-    return _serialize_detail(candidate, current_user)
+    return _serialize_candidate(candidate, current_user)
 
 
 @router.delete("/{candidate_id}", status_code=status.HTTP_204_NO_CONTENT)

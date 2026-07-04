@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client.js";
 import Navbar from "../components/Navbar.jsx";
@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 
 const STATUSES = ["new", "reviewed", "hired", "rejected", "archived"];
 const PAGE_SIZE = 20;
+const pageHeaderStyle = { display: "flex", justifyContent: "space-between", alignItems: "center" };
 
 export default function CandidateList() {
   const [items, setItems] = useState([]);
@@ -22,7 +23,7 @@ export default function CandidateList() {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
 
-  async function load() {
+  const refreshCandidates = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -41,29 +42,31 @@ export default function CandidateList() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [keyword, offset, roleApplied, skill, status]);
 
   useEffect(() => {
-    load();
-  }, [offset]);
+    refreshCandidates();
+  }, [refreshCandidates]);
 
-  function applyFilters(e) {
+  function handleFilterSubmit(e) {
     e.preventDefault();
     setOffset(0);
-    load();
+    refreshCandidates();
   }
 
-  const page = Math.floor(offset / PAGE_SIZE) + 1;
+  const pageNumber = Math.floor(offset / PAGE_SIZE) + 1;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div>
       <Navbar />
       <div className="container">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={pageHeaderStyle}>
           <h2>Candidates</h2>
           {isAdmin && (
-            <button onClick={() => setShowCreate((v) => !v)}>{showCreate ? "Cancel" : "+ New Candidate"}</button>
+            <button onClick={() => setShowCreate((value) => !value)}>
+              {showCreate ? "Cancel" : "+ New Candidate"}
+            </button>
           )}
         </div>
 
@@ -71,17 +74,17 @@ export default function CandidateList() {
           <CreateCandidateForm
             onCreated={() => {
               setShowCreate(false);
-              load();
+              refreshCandidates();
             }}
           />
         )}
 
-        <form className="filters" onSubmit={applyFilters}>
+        <form className="filters" onSubmit={handleFilterSubmit}>
           <select value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">All statuses</option>
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
+            {STATUSES.map((entry) => (
+              <option key={entry} value={entry}>
+                {entry}
               </option>
             ))}
           </select>
@@ -120,21 +123,21 @@ export default function CandidateList() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((c) => (
-                  <tr key={c.id} className="clickable" onClick={() => navigate(`/candidates/${c.id}`)}>
-                    <td>{c.name}</td>
-                    <td>{c.role_applied}</td>
+                {items.map((candidate) => (
+                  <tr key={candidate.id} className="clickable" onClick={() => navigate(`/candidates/${candidate.id}`)}>
+                    <td>{candidate.name}</td>
+                    <td>{candidate.role_applied}</td>
                     <td>
-                      <span className={`badge ${c.status}`}>{c.status}</span>
+                      <span className={`badge ${candidate.status}`}>{candidate.status}</span>
                     </td>
                     <td>
-                      {c.skills.map((s) => (
-                        <span className="skill-tag" key={s}>
-                          {s}
+                      {candidate.skills.map((skillName) => (
+                        <span className="skill-tag" key={skillName}>
+                          {skillName}
                         </span>
                       ))}
                     </td>
-                    <td className="muted">{new Date(c.created_at).toLocaleDateString()}</td>
+                    <td className="muted">{new Date(candidate.created_at).toLocaleDateString()}</td>
                   </tr>
                 ))}
               </tbody>
@@ -150,7 +153,7 @@ export default function CandidateList() {
               Previous
             </button>
             <span className="muted">
-              Page {page} of {totalPages} ({total} total)
+              Page {pageNumber} of {totalPages} ({total} total)
             </span>
             <button
               className="secondary"
@@ -185,7 +188,7 @@ function CreateCandidateForm({ onCreated }) {
         role_applied: roleApplied,
         skills: skills
           .split(",")
-          .map((s) => s.trim())
+          .map((skillName) => skillName.trim())
           .filter(Boolean),
       });
       onCreated();

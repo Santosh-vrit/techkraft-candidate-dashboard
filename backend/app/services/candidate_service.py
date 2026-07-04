@@ -13,18 +13,12 @@ PAGE_SIZE_DEFAULT = 20
 PAGE_SIZE_MAX = 50
 
 
-async def search_candidates(
-    db: AsyncSession,
+def _build_search_conditions(
     status: Optional[str] = None,
     role_applied: Optional[str] = None,
     skill: Optional[str] = None,
     keyword: Optional[str] = None,
-    offset: int = 0,
-    limit: int = PAGE_SIZE_DEFAULT,
-) -> tuple[list[Candidate], int]:
-    limit = max(1, min(limit, PAGE_SIZE_MAX))
-    offset = max(0, offset)
-
+):
     conditions = [Candidate.deleted_at.is_(None)]
 
     if status:
@@ -39,13 +33,35 @@ async def search_candidates(
             ).bindparams(skill=skill)
         )
     if keyword:
-        like = f"%{keyword.lower()}%"
+        like_pattern = f"%{keyword.lower()}%"
         conditions.append(
             or_(
-                func.lower(Candidate.name).like(like),
-                func.lower(Candidate.email).like(like),
+                func.lower(Candidate.name).like(like_pattern),
+                func.lower(Candidate.email).like(like_pattern),
             )
         )
+
+    return conditions
+
+
+async def search_candidates(
+    db: AsyncSession,
+    status: Optional[str] = None,
+    role_applied: Optional[str] = None,
+    skill: Optional[str] = None,
+    keyword: Optional[str] = None,
+    offset: int = 0,
+    limit: int = PAGE_SIZE_DEFAULT,
+) -> tuple[list[Candidate], int]:
+    limit = max(1, min(limit, PAGE_SIZE_MAX))
+    offset = max(0, offset)
+
+    conditions = _build_search_conditions(
+        status=status,
+        role_applied=role_applied,
+        skill=skill,
+        keyword=keyword,
+    )
 
     base_query = select(Candidate).where(*conditions)
 
@@ -104,11 +120,13 @@ async def soft_delete_candidate(db: AsyncSession, candidate: Candidate) -> None:
     await db.commit()
 
 
-def _mock_llm_summary(candidate: Candidate, scores: list[Score]) -> str:
+def _build_mock_summary(candidate: Candidate, scores: list[Score]) -> str:
     skills = ", ".join(candidate.skills) if candidate.skills else "no listed skills"
     if scores:
-        avg = sum(s.score for s in scores) / len(scores)
-        score_line = f"Average reviewer score so far is {avg:.1f}/5 across {len(scores)} submission(s)."
+        average_score = sum(score.score for score in scores) / len(scores)
+        score_line = (
+            f"Average reviewer score so far is {average_score:.1f}/5 across {len(scores)} submission(s)."
+        )
     else:
         score_line = "No scores have been submitted yet."
     return (
@@ -126,7 +144,7 @@ async def generate_ai_summary(session_factory, candidate_id: str) -> None:
             if candidate is None:
                 return
 
-            summary = _mock_llm_summary(candidate, candidate.scores)
+            summary = _build_mock_summary(candidate, candidate.scores)
             candidate.ai_summary = summary
             candidate.ai_summary_status = SummaryStatus.completed
             await db.commit()
