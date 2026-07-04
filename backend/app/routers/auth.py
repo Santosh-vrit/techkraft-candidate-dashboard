@@ -16,10 +16,6 @@ async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db))
     if existing.scalar_one_or_none() is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
-    # SECURITY: role is always hardcoded to "reviewer" here. The request
-    # schema (RegisterRequest) has no `role` field at all, so there is no
-    # way for a client to request elevated privileges at signup. Admin
-    # accounts are provisioned out-of-band (see app.startup seed).
     user = User(email=payload.email, hashed_password=hash_password(payload.password), role=Role.reviewer)
     db.add(user)
     await db.commit()

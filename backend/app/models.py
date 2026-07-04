@@ -22,7 +22,7 @@ class CandidateStatus(str, enum.Enum):
     reviewed = "reviewed"
     hired = "hired"
     rejected = "rejected"
-    archived = "archived"  # soft-delete state
+    archived = "archived"
 
 
 class SummaryStatus(str, enum.Enum):

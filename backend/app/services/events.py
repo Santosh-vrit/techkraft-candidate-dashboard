@@ -2,9 +2,6 @@ import asyncio
 import json
 from collections import defaultdict
 
-# In-memory pub/sub for SSE streaming of score/summary updates per candidate.
-# Single-process only -- fine for this take-home; a production deployment
-# with multiple workers would back this with Redis pub/sub instead.
 _subscribers: dict[str, list[asyncio.Queue]] = defaultdict(list)
 
 

@@ -40,7 +40,6 @@ async def test_reviewer_cannot_see_another_reviewers_scores(client):
     assert len(detail_b["scores"]) == 1
     assert detail_b["scores"][0]["category"] == "Communication"
 
-    # admin sees both
     detail_admin = (await client.get(f"/candidates/{candidate_id}", headers=admin_headers)).json()
     assert len(detail_admin["scores"]) == 2
 
@@ -69,7 +68,6 @@ async def test_reviewer_cannot_see_internal_notes_or_create_candidates(client):
     detail = (await client.get(f"/candidates/{candidate_id}", headers=reviewer_headers)).json()
     assert detail["internal_notes"] is None
 
-    # reviewers are not authorized to create candidates or edit notes
     forbidden_create = await client.post(
         "/candidates",
         json={"name": "X", "email": "x@example.com", "role_applied": "Y", "skills": []},

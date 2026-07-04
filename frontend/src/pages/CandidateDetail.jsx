@@ -37,8 +37,6 @@ export default function CandidateDetail() {
     return () => clearTimeout(pollRef.current);
   }, [load]);
 
-  // Poll while a summary generation is pending, so the UI reflects the
-  // async "LLM call" completing without requiring a manual refresh.
   useEffect(() => {
     if (candidate?.ai_summary_status === "pending") {
       pollRef.current = setTimeout(async () => {

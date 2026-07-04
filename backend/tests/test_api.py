@@ -11,8 +11,6 @@ async def test_register_hardcodes_reviewer_role(client):
         json={"email": "hacker@example.com", "password": "password123", "name": "Hacker", "role": "admin"},
     )
     assert resp.status_code == 201
-    # even if a `role` key is smuggled into the JSON body, the response schema
-    # has no such field and the server always assigns "reviewer"
     assert resp.json()["role"] == "reviewer"
 
 
@@ -61,7 +59,6 @@ async def test_candidate_soft_delete(client):
     del_resp = await client.delete(f"/candidates/{candidate_id}", headers=headers)
     assert del_resp.status_code == 204
 
-    # soft-deleted candidates are excluded from lookups, but the row still exists
     get_resp = await client.get(f"/candidates/{candidate_id}", headers=headers)
     assert get_resp.status_code == 404
 

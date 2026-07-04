@@ -22,10 +22,6 @@ async def search_candidates(
     offset: int = 0,
     limit: int = PAGE_SIZE_DEFAULT,
 ) -> tuple[list[Candidate], int]:
-    """Build one filtered, indexed, paginated SQL query instead of loading
-    every row into memory and slicing in Python (see README "Debugging
-    Signal" section for why that pattern doesn't scale).
-    """
     limit = max(1, min(limit, PAGE_SIZE_MAX))
     offset = max(0, offset)
 
@@ -36,10 +32,6 @@ async def search_candidates(
     if role_applied:
         conditions.append(func.lower(Candidate.role_applied) == role_applied.lower())
     if skill:
-        # SQLite has no native array-contains operator; skills are stored as a
-        # JSON column so we use the built-in json_each() table-valued function
-        # to check membership. (A Postgres deployment would use an ARRAY
-        # column + GIN index here instead.)
         conditions.append(
             text(
                 "EXISTS (SELECT 1 FROM json_each(candidates.skills) "
@@ -126,13 +118,9 @@ def _mock_llm_summary(candidate: Candidate, scores: list[Score]) -> str:
 
 
 async def generate_ai_summary(session_factory, candidate_id: str) -> None:
-    """Simulates an async LLM call. Runs as a background task so the HTTP
-    request that triggered it returns immediately (202) instead of holding
-    the connection open for the duration of the "model call".
-    """
     async with session_factory() as db:
         try:
-            await asyncio.sleep(2)  # simulated network/LLM latency
+            await asyncio.sleep(2)
 
             candidate = await get_candidate_with_scores(db, candidate_id)
             if candidate is None:

@@ -29,9 +29,7 @@ async function request(path, { method = "GET", body, params } = {}) {
     try {
       const data = await res.json();
       detail = data.detail || JSON.stringify(data);
-    } catch {
-      // response had no JSON body
-    }
+    } catch {}
     const error = new Error(detail);
     error.status = res.status;
     throw error;

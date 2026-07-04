@@ -14,17 +14,11 @@ from app.models import Role, User
 
 @pytest_asyncio.fixture
 async def client():
-    # A real (temp) SQLite file rather than ":memory:" -- an in-memory
-    # SQLite DB is scoped to a single connection, and the async engine
-    # opens a fresh connection per session, so state wouldn't persist
-    # across requests without extra pooling configuration.
     fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
     engine = create_async_engine(f"sqlite+aiosqlite:///{path}")
     test_session_local = async_sessionmaker(engine, expire_on_commit=False)
 
-    # Point the app's session factory + candidate_service background tasks at
-    # the same in-memory engine used by the test client.
     database.engine = engine
     database.AsyncSessionLocal = test_session_local
 

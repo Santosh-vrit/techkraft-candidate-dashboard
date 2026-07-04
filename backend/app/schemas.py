@@ -14,13 +14,10 @@ SCORE_CATEGORIES = [
 ]
 
 
-# ---- Auth ----
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8)
     name: str = Field(min_length=1, max_length=255)
-    # NOTE: intentionally no `role` field here — role is always hardcoded to
-    # "reviewer" server-side (see routers/auth.py). Never accept role from the client.
 
 
 class LoginRequest(BaseModel):
@@ -43,7 +40,6 @@ class UserOut(BaseModel):
         from_attributes = True
 
 
-# ---- Scores ----
 class ScoreCreate(BaseModel):
     category: str
     score: int = Field(ge=1, le=5)
@@ -71,7 +67,6 @@ class ScoreOut(BaseModel):
         from_attributes = True
 
 
-# ---- Candidates ----
 class CandidateCreate(BaseModel):
     name: str
     email: EmailStr
@@ -108,7 +103,7 @@ class CandidateDetail(BaseModel):
     status: CandidateStatus
     skills: list[str]
     created_at: datetime
-    internal_notes: Optional[str] = None  # omitted (None) for reviewers
+    internal_notes: Optional[str] = None
     ai_summary: Optional[str] = None
     ai_summary_status: SummaryStatus
     scores: list[ScoreOut]

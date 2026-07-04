@@ -26,9 +26,6 @@ router = APIRouter(prefix="/candidates", tags=["candidates"])
 def _serialize_detail(
     candidate: Candidate, current_user: User, scores: list | None = None
 ) -> CandidateDetail:
-    # `scores` defaults to the ORM relationship; callers that haven't eager
-    # loaded it (e.g. right after INSERT) must pass an explicit list to avoid
-    # triggering a lazy-load outside of an awaited context.
     all_scores = candidate.scores if scores is None else scores
     is_admin = current_user.role == Role.admin
     visible_scores = all_scores if is_admin else [
@@ -140,7 +137,6 @@ async def delete_candidate(
     candidate = await candidate_service.get_candidate_with_scores(db, candidate_id)
     if candidate is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidate not found")
-    # Soft delete only: mark archived + set deleted_at, never DROP the row.
     await candidate_service.soft_delete_candidate(db, candidate)
 
 
@@ -185,8 +181,6 @@ async def trigger_summary(
     candidate.ai_summary = None
     await db.commit()
 
-    # Runs after the response is sent, simulating a 2s async LLM call
-    # without holding the request open for the duration.
     background_tasks.add_task(candidate_service.generate_ai_summary, database.AsyncSessionLocal, candidate_id)
 
     return SummaryTriggerResponse(ai_summary_status=SummaryStatus.pending)
@@ -198,8 +192,6 @@ async def stream_candidate_updates(
     request: Request,
     current_user: User = Depends(get_current_user),
 ):
-    """Stretch goal: SSE endpoint streaming score submissions and AI summary
-    completion for this candidate in real time."""
     queue = subscribe(candidate_id)
 
     async def event_generator():
